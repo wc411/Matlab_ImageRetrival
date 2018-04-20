@@ -23,7 +23,7 @@ function varargout = cw2(varargin)
 
 % Edit the above text to modify the response to help cw2
 
-% Last Modified by GUIDE v2.5 02-Apr-2018 03:50:42
+% Last Modified by GUIDE v2.5 16-Apr-2018 11:27:34
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -46,12 +46,6 @@ end
 
 % --- Executes just before cw2 is made visible.
 function cw2_OpeningFcn(hObject, eventdata, handles, varargin)
-% This function has no output args, see OutputFcn.
-% hObject    handle to figure
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-% varargin   command line arguments to cw2 (see VARARGIN)
-
 % Choose default command line output for cw2
 handles.output = hObject;
 
@@ -61,14 +55,12 @@ guidata(hObject, handles);
 %%
 % Turns off the axes off when GUI is loaded
 set(handles.axes1,'visible','off');
+set(handles.slider2,'visible','off');
+setappdata(0,'sort', 1);
+
 
 % --- Outputs from this function are returned to the command line.
 function varargout = cw2_OutputFcn(hObject, eventdata, handles) 
-% varargout  cell array for returning output args (see VARARGOUT);
-% hObject    handle to figure
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
 % Get default command line output from handles structure
 varargout{1} = handles.output;
 
@@ -108,9 +100,11 @@ imgList = getappdata(0, 'imgList');
 % An if-statement that checks if the folder is not empty, or if an image
 % folder has been selected, else display error message
 if (isequal(imgCount,0))
-    errorMessage = 'Folder is empty'
+    errorMessage = 'Folder is empty';
+    set(handles.txtBOX,'String', errorMessage);
 elseif (isequal(imgCount,[]))
-    errorMessage = 'Please select an image folder'
+    errorMessage = 'Please select an image folder';
+    set(handles.txtBOX,'String', errorMessage);
 else
     % Open the file name 'imgDB.txt' for writing
     % and save the ID to the variable 'fileID'
@@ -123,7 +117,7 @@ else
         tempIMGName = imgList(i).name;
         
         % Display the image that has been saved
-        savedIMG = tempIMGName
+        savedIMG = tempIMGName;
         
         % Reads the image from the file 
         % and stores it into the variable 'tempIMG'
@@ -172,7 +166,8 @@ else
     fclose(fileID);
     
     % Display a confirmation message saying the database has been created
-    Message = 'Successfully created the image database'
+    Message = 'Successfully created the image database';
+    set(handles.txtBOX,'String', Message);
 end
 
 % --- Executes on button press in btnLDS.
@@ -184,7 +179,8 @@ fileID = fopen('imgDB.txt','r');
 
 % Check that the file exists, else display error message
 if(isequal(fileID, -1))
-    errorMessage = 'File does not exists'
+    errorMessage = 'Database does not exists';
+    set(handles.txtBOX,'String', errorMessage);
 else
     % Reads the text file into a cell array
     tempArray = textscan(fileID,'%s','Delimiter', '\n');
@@ -194,7 +190,8 @@ else
     
     % Checks that the text file is not empty, else display error message
     if(isempty(tempArray{1}) == 1)
-        errorMessage = 'File is empty'
+        errorMessage = 'Database is empty';
+        set(handles.txtBOX,'String', errorMessage);
     else
         % Match the regular expression and split the string by space
         % into several substrings, where each substring is delimited by a ' ' character
@@ -204,6 +201,10 @@ else
         % Get the size of the cell array, since it's only one dimension we
         % specified it by 1. 
         listSize = size(result, 1);
+        
+        set(handles.slider2, 'min', 0);
+        set(handles.slider2, 'max', listSize);
+        set(handles.slider2, 'Value', listSize); % Somewhere between max and min.
 
         % Initializing an empty cell array to keep all the images data
         tempHolder = {};
@@ -222,7 +223,7 @@ else
             tmpArrNr = [x yIMG yRed yGreen yBlue];
             
             % Display the image that has been loaded
-            loadedIMG = result{i}{1}
+            loadedIMG = result{i}{1};
             
             % Afterwards save the array including the image name 
             % into one single cell array 
@@ -237,7 +238,8 @@ else
         setappdata(0,'imagesData',tempHolder);
         
         % Display a confirmation message saying the image has been loaded
-        Message = 'Image database successfully loaded'
+        Message = 'Image database successfully loaded';
+        set(handles.txtBOX,'String', Message);
     end
 end
 
@@ -258,9 +260,11 @@ else
     % Displays the image/file in the axes
     axes(handles.axes1)
     imshow(fileName);
+    title(fileName);
     
     % Display a confirmation message
-    Message = ['Image ''' fileName ''' has been selected']
+    Message = ['Image ''' fileName ''' has been selected'];
+    set(handles.txtBOX,'String', Message);
 end
 
 % --- Executes on button press in btnQI.
@@ -271,12 +275,16 @@ imgPath = getappdata(0, 'imgName');
 % Gets the database stored in appdata and saves it into a variable
 imgDB = getappdata(0,'imagesData');
 
+sortType = getappdata(0, 'sort');
+
 % Checks that an image has been selected
 % and that the database has been loaded
 if (isequal(imgPath, []))
-    errorMessage = 'No image has been selected'
+    errorMessage = 'No image has been selected';
+    set(handles.txtBOX,'String', errorMessage);
 elseif(isequal(imgDB, []))
-    errorMessage = 'Database has not be loaded'
+    errorMessage = 'Database has not be loaded';
+    set(handles.txtBOX,'String', errorMessage);
 else
     % Read the image to a variable
     img1 = imread(imgPath);
@@ -336,39 +344,104 @@ else
     
     % Sort the array with all the compared flowers values LOW-HIGH
     sortedRank = sort(tmpImgScore);
-    
-    % Get the last ten index of the array list
-    top10 = find(sortedRank,10,'last');
-    
-    % Reverse the top10 list, HIGH-LOW
-    top10 = fliplr(top10);
-    
-    % Use the top10 index to get the values from the sortedRank array
-    final10 = sortedRank(top10);
+    topList = {};
+    switch(sortType)
+        case 2
+            % Get the last ten index of the array list
+            topList = find(sortedRank,10,'last');
 
+            % Reverse the topList list, HIGH-LOW
+            topList = fliplr(topList);
+
+            % Use the topList index to get the values from the sortedRank array
+            finalList = sortedRank(topList);
+        case 3
+            % Reverse the topList list, HIGH-LOW
+            topList = fliplr(sortedRank);
+
+            % 
+            finalList = topList;
+    end
+    
     % A cell array that will contain the top ten flower names/path
     finalRankList = {};
     
     % A for-loop to find which flower have similar score
     % as the 10 top flowers in the list, and extract them
-    for ii = 1:size(top10,2) % Get the amount of element in the array
+    for ii = 1:size(topList,2) % Get the amount of element in the array
         for jj = 1:imgCount % Get the amount of flowers
-            if(isequal(final10(ii), tmpImgNameScore{jj}{2})) % Compare if they are equal
+            if(isequal(finalList(ii), tmpImgNameScore{jj}{2})) % Compare if they are equal
                 % If match, put their name in the list
                 finalRankList = [finalRankList tmpImgNameScore{jj}{1}];
             end
         end
     end
     
-    uip = uipanel(handles.panUI);
-    myaxes = axes('parent', uip);
-    
-    for ii = 1:size(finalRankList, 2)
-        subplot(5,2,ii);
-        % [left(x) bottom(y) width height]
-        imshow(finalRankList{ii});
+    switch(sortType)
+        case 1
+            setappdata(0,'finalRankList',tmpImgNameScore);
+        case 2
+            setappdata(0,'finalRankList',finalRankList);
+            setappdata(0,'finalList',finalList);
+        case 3
+            setappdata(0,'finalRankList',finalRankList);
+            setappdata(0,'finalList',finalList);
     end
+   
+    displayQueryIMG(handles)
 end
+
+function displayQueryIMG(handles)
+sortType = getappdata(0, 'sort');
+finalRankList = getappdata(0, 'finalRankList');
+finalList = getappdata(0, 'finalList');
+
+uip = uipanel(handles.panUI);
+myaxes = axes('parent', uip);
+
+switch(sortType)
+    case 1
+        set(handles.slider2,'visible','on');
+        slidervalue = get(handles.slider2, 'Value');
+        for ii = 1:10
+            subplot(5,2,ii);
+            % [left(x) bottom(y) width height]
+            if(slidervalue < 90)
+                index = (90 + ii - slidervalue);
+            else
+                index = (100 + ii - slidervalue);
+            end
+            imshow(finalRankList{index}{1});
+            tmpStr = sprintf('%s %.4f', finalRankList{index}{1}, finalRankList{index}{2});
+            title(tmpStr);
+        end
+    case 2
+        set(handles.slider2,'visible','off');
+        for ii = 1:10
+            subplot(5,2,ii);
+            % [left(x) bottom(y) width height]
+            imshow(finalRankList{ii});
+            tmpStr = sprintf('%s %.4f', finalRankList{ii}, finalList(ii));
+            title(tmpStr);
+        end
+    case 3
+        set(handles.slider2,'visible','on');
+        slidervalue = get(handles.slider2, 'Value');
+        for ii = 1:10
+            subplot(5,2,ii);
+            % [left(x) bottom(y) width height]
+            if(slidervalue < 90)
+                index = (90 + ii - slidervalue);
+            else
+                index = (100 + ii - slidervalue);
+            end
+            imshow(finalRankList{index});
+            tmpStr = sprintf('%s %.4f', finalRankList{index}, finalList(index));
+            title(tmpStr);
+        end
+end
+        
+return
 
 % --- Executes on button press in btnExit.
 % --- Close all application, clear all variables including appdata, cle
@@ -394,7 +467,8 @@ imgPath = getappdata(0, 'imgName');
 
 % Checks that an image has been selected, else display error message
 if(isequal(imgPath, []))
-    errorMessage = 'No image has been selected'
+    errorMessage = 'No image has been selected';
+    set(handles.txtBOX,'String', errorMessage);
 else
     % Display a new figure, because current one is full
     figure;
@@ -546,3 +620,28 @@ endPoint = endPoint + fixSize - 1;
 % Get the blue channel histogram values and stores it in an array
 yBlue = getCell(tmpList, startPoint, endPoint);
 return;
+
+% --- Executes on slider movement.
+function slider2_Callback(hObject, eventdata, handles)
+% Updates the scrollbar value, it might contain decimal if not rounded
+NewValue=round(hObject.Value);
+hObject.Value = NewValue;
+displayQueryIMG(handles)
+
+% --- Executes during object creation, after setting all properties.
+function slider2_CreateFcn(hObject, eventdata, handles)
+% Hint: slider controls usually have a light gray background.
+if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor',[.9 .9 .9]);
+end
+
+% --- Executes when selected object is changed in uibuttongroup5.
+function uibuttongroup5_SelectionChangedFcn(hObject, eventdata, handles)
+switch(get(eventdata.NewValue,'Tag'))
+    case 'radiobutton1'
+        setappdata(0,'sort', 1);
+    case 'radiobutton2'
+        setappdata(0,'sort', 2);
+    case 'radiobutton3'
+        setappdata(0,'sort', 3);
+end
